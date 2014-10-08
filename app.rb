@@ -29,6 +29,8 @@ class AgentCall < CurrentCall
   end
 end
 
+
+
 class App < Sinatra::Base
 
   configure do
@@ -40,6 +42,11 @@ class App < Sinatra::Base
     set :queue_name, "queue_name"
     set :hold_queue_name, "hold_queue_name"
     set :conference_name, "fighting_mongooses_conf"
+    set :menu, {
+      1 => "drink orange juice",
+      2 => "dance",
+      3 => "PARTY!"
+    }
   end
 
   before do
@@ -70,8 +77,12 @@ class App < Sinatra::Base
 
   post '/queue_wait' do
     response = Twilio::TwiML::Response.new do |r|
-      r.Gather :action => url("/say_hello") do |d|
-        d.Play "http://com.twilio.music.classical.s3.amazonaws.com/BusyStrings.mp3"
+
+      r.Gather :action => url("/say_hello"), :numDigits => 1, :method => 'POST' do |d|
+        d.Say "Choose an option?"
+        settings.menu.each do |k, v|
+          d.Say "Press #{k} to #{v}"
+        end
       end
     end
     response.text
@@ -87,7 +98,13 @@ class App < Sinatra::Base
 
   post '/say_hello' do
     response = Twilio::TwiML::Response.new do |r|
-      r.Say "Hello world"
+      digit = params['Digits']
+      txt = settings.menu[digit.to_i]
+      if txt
+        r.Say "You want to #{txt}!"
+      else
+        r.Say "Choose a real option, for the love of god."
+      end
       r.Enqueue(settings.queue_name, "waitUrl" => url("/queue_wait"))
     end
     response.text
